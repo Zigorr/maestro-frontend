@@ -1,0 +1,81 @@
+# ─── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# ─── Expo / React Native ─────────────────────────────────────────────────────
+.expo/
+.expo-shared/
+dist/
+web-build/
+native/
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# ─── Build outputs ───────────────────────────────────────────────────────────
+build/
+out/
+
+# ─── Environment variables ───────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ─── Metro bundler ───────────────────────────────────────────────────────────
+.metro-health-check*
+.metro_cache/
+
+# ─── Editor / IDE ────────────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── OS artifacts ────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── TypeScript ──────────────────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Coverage / Testing ──────────────────────────────────────────────────────
+coverage/
+.nyc_output
+
+# ─── Soundfonts (large binary — bundle only the subset you need) ─────────────
+assets/soundfont/full/
+*.sf2
+*.sf3
+
+# ─── Temporary files ─────────────────────────────────────────────────────────
+*.tmp
+*.temp
+.cache/

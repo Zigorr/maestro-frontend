@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "MAESTRO",
+    "slug": "maestro-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07070f",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07070f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.maestro.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "platforms": [
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-document-picker",
+      "expo-file-system"
+    ]
+  }
+}
+
+
