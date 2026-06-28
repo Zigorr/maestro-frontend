@@ -5,19 +5,21 @@
  * Accepts NoteEvent objects decoded from REMI tokens.
  *
  * Sound design:
- *  - Sawtooth + triangle oscillators detuned for richness
- *  - Per-note ADSR envelope
- *  - Biquad LP filter (cutoff driven by velocity → brightness)
- *  - Convolution reverb via AudioContext.createConvolver() with synthetic IR
- *  - Master compressor to avoid clipping
+ * - Sawtooth + triangle oscillators detuned for richness
+ * - Per-note ADSR envelope
+ * - Biquad LP filter (cutoff driven by velocity → brightness)
+ * - Convolution reverb via AudioContext.createConvolver() with synthetic IR
+ * - Master compressor to avoid clipping
  *
  * Only runs on web (AudioContext is a browser API). On native it no-ops.
  */
 
-import { NoteEvent } from './remiDecoder';
+import { NoteEvent } from "./remiDecoder";
 
 // ─── Platform guard ────────────────────────────────────────────────────────
-const IS_WEB = typeof window !== 'undefined' && typeof (window as any).AudioContext !== 'undefined';
+const IS_WEB =
+  typeof window !== "undefined" &&
+  typeof (window as any).AudioContext !== "undefined";
 
 // ─── MIDI pitch → frequency ────────────────────────────────────────────────
 function midiToFreq(midi: number): number {
@@ -25,7 +27,11 @@ function midiToFreq(midi: number): number {
 }
 
 // ─── Synthetic reverb impulse response ────────────────────────────────────
-function buildReverbIR(ctx: AudioContext, durationSec = 1.8, decay = 3.5): AudioBuffer {
+function buildReverbIR(
+  ctx: AudioContext,
+  durationSec = 1.8,
+  decay = 3.5,
+): AudioBuffer {
   const rate = ctx.sampleRate;
   const len = Math.ceil(rate * durationSec);
   const buf = ctx.createBuffer(2, len, rate);
@@ -55,7 +61,8 @@ export class WebAudioSynth {
   }
 
   private _init() {
-    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AudioCtx =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
     this.ctx = new AudioCtx() as AudioContext;
 
     // Master chain: dryGain + reverbGain → compressor → masterGain → dest
@@ -88,7 +95,14 @@ export class WebAudioSynth {
     return this.ctx?.resume() ?? Promise.resolve();
   }
 
-  get volume() { return this._volume; }
+  /** Suspend context to instantly pause playback. Returns a Promise. */
+  pause(): Promise<void> {
+    return this.ctx?.suspend() ?? Promise.resolve();
+  }
+
+  get volume() {
+    return this._volume;
+  }
   set volume(v: number) {
     this._volume = Math.max(0, Math.min(1, v));
     if (this.masterGain) this.masterGain.gain.value = this._volume;
@@ -141,20 +155,20 @@ export class WebAudioSynth {
 
     // Biquad filter — brightness from velocity
     const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
+    filter.type = "lowpass";
     filter.frequency.value = 800 + gain * 6000;
     filter.Q.value = 0.8;
     filter.connect(noteGain);
 
     // Two slightly detuned oscillators for richness
     const osc1 = ctx.createOscillator();
-    osc1.type = 'sawtooth';
+    osc1.type = "sawtooth";
     osc1.frequency.value = freq;
     osc1.detune.value = -5;
     osc1.connect(filter);
 
     const osc2 = ctx.createOscillator();
-    osc2.type = 'triangle';
+    osc2.type = "triangle";
     osc2.frequency.value = freq;
     osc2.detune.value = +5;
 
@@ -173,7 +187,13 @@ export class WebAudioSynth {
 
     // Cleanup
     osc1.onended = () => {
-      try { osc1.disconnect(); osc2.disconnect(); triGain.disconnect(); filter.disconnect(); noteGain.disconnect(); } catch {}
+      try {
+        osc1.disconnect();
+        osc2.disconnect();
+        triGain.disconnect();
+        filter.disconnect();
+        noteGain.disconnect();
+      } catch {}
     };
   }
 
@@ -181,7 +201,13 @@ export class WebAudioSynth {
   playNoteNow(pitch: number, velocity = 80, durationSec = 0.5) {
     if (!IS_WEB || !this.ctx) return;
     this.resume();
-    this._scheduleNote(this.ctx, midiToFreq(pitch), velocity / 127, this.ctx.currentTime + 0.01, this.ctx.currentTime + 0.01 + durationSec);
+    this._scheduleNote(
+      this.ctx,
+      midiToFreq(pitch),
+      velocity / 127,
+      this.ctx.currentTime + 0.01,
+      this.ctx.currentTime + 0.01 + durationSec,
+    );
   }
 
   destroy() {

@@ -3,23 +3,16 @@
  *
  * React hook that listens to the Zustand music token store and drives
  * the WebAudioSynth in real-time.
- *
- * Strategy:
- *  - Accumulate REMI tokens into a rolling buffer
- *  - When a Bar_None token (id=4) arrives, decode the completed bar and
- *    schedule its notes with a small look-ahead
- *  - Tempo is taken from the latest musicParams prediction
  */
 
-import { useEffect, useRef, useCallback } from 'react';
-import { useMusicStore } from '../store/musicStore';
-import { useStore as useInferenceStore } from '../store/inferenceStore';
-import { decodeREMI } from '../services/remiDecoder';
-import { globalSynth } from '../services/webAudioSynth';
+import { useEffect, useRef, useCallback } from "react";
+import { useMusicStore } from "../store/musicStore";
+import { useStore as useInferenceStore } from "../store/inferenceStore";
+import { decodeREMI } from "../services/remiDecoder";
+import { globalSynth } from "../services/webAudioSynth";
 
 const BAR_TOKEN = 4; // REMI Bar_None
 const DEFAULT_BPM = 120;
-// Small audio look-ahead: schedule this many seconds ahead of now
 const LOOKAHEAD_SEC = 0.15;
 
 export function useAudioSynth() {
@@ -28,73 +21,116 @@ export function useAudioSynth() {
   const latestPrediction = useInferenceStore((s) => s.latestPrediction);
 
   const bpmRef = useRef(DEFAULT_BPM);
-  const processedCountRef = useRef(0); // how many tokens we have already processed
-  const tokenBufferRef = useRef<number[]>([]); // tokens for the current bar-in-progress
-  const nextScheduleTimeRef = useRef<number | undefined>(undefined); // AudioContext time when next bar starts
+  const lastProcessedTokenRef = useRef<any>(null);
+  const tokenBufferRef = useRef<number[]>([]);
+  const nextScheduleTimeRef = useRef<number | undefined>(undefined);
 
-  // Keep bpm ref in sync
   useEffect(() => {
     if (latestPrediction?.musicParams?.tempoBpm) {
       bpmRef.current = latestPrediction.musicParams.tempoBpm;
     }
   }, [latestPrediction]);
 
-  const processNewTokens = useCallback(async () => {
-    if (playbackStatus !== 'playing') return;
+  // Instantly suspend or resume the audio engine when the play button is toggled
+  useEffect(() => {
+    if (playbackStatus === "playing") {
+      globalSynth?.resume();
+    } else {
+      globalSynth?.pause();
+    }
+  }, [playbackStatus]);
+
+  // Backpressure & Pause handler for the server
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      const currentPlaybackStatus = useMusicStore.getState().playbackStatus;
+
+      // If the user paused the player, tell the backend our queue is full (qsize = 2)
+      // This stops the server from sending more tokens until we hit play again.
+      if (currentPlaybackStatus !== "playing") {
+        useMusicStore.getState().setQueueSize(2);
+        return;
+      }
+
+      const synth = globalSynth;
+      if (!synth) return;
+
+      const ctx = (synth as any).ctx;
+      if (!ctx || ctx.state !== "running") return;
+
+      if (nextScheduleTimeRef.current !== undefined) {
+        const lookahead = Math.max(
+          0,
+          nextScheduleTimeRef.current - ctx.currentTime,
+        );
+        const qsize = lookahead > 3.0 ? 2 : 0;
+        useMusicStore.getState().setQueueSize(qsize);
+      } else {
+        useMusicStore.getState().setQueueSize(0);
+      }
+    }, 100);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Removed the async/await race condition here
+  const processNewTokens = useCallback(() => {
+    if (playbackStatus !== "playing") return;
 
     const synth = globalSynth;
-    if (!synth) return; // no-op on native
+    if (!synth) return;
 
-    // Resume AudioContext — MUST await so context is running before scheduling
-    await synth.resume();
-
+    // We no longer call `synth.resume()` here.
+    // We let the useEffect above manage the engine's awake/sleep state.
     const ctx = (synth as any).ctx;
     if (!ctx) return;
 
-    // Double-check context is actually running after resume
-    if (ctx.state !== 'running') return;
-
     const allTokens = tokens;
-    const newCount = allTokens.length;
-    if (newCount <= processedCountRef.current) return;
+    if (allTokens.length === 0) return;
 
-    const newTokens = allTokens
-      .slice(processedCountRef.current)
-      .map((t) => t.token);
-    processedCountRef.current = newCount;
+    let startIndex = 0;
+    if (lastProcessedTokenRef.current) {
+      const idx = allTokens.indexOf(lastProcessedTokenRef.current);
+      if (idx !== -1) {
+        startIndex = idx + 1;
+      }
+    }
 
-    // Decrement the queue size in the store
-    const numProcessed = newTokens.length;
-    useMusicStore.getState().setQueueSize(
-      Math.max(0, useMusicStore.getState().tokenQueueSize - numProcessed)
-    );
+    if (startIndex >= allTokens.length) return;
+
+    const newTokensObj = allTokens.slice(startIndex);
+    lastProcessedTokenRef.current = newTokensObj[newTokensObj.length - 1];
+
+    const newTokens = newTokensObj.map((t) => t.token);
 
     for (const tokenId of newTokens) {
       tokenBufferRef.current.push(tokenId);
 
-      // On Bar boundary — decode the accumulated buffer and schedule it
       if (tokenId === BAR_TOKEN) {
         const buf = tokenBufferRef.current.slice();
-        tokenBufferRef.current = [BAR_TOKEN]; // keep bar token as start of next
+        tokenBufferRef.current = [BAR_TOKEN];
 
-        if (buf.length <= 1) continue; // empty bar
+        if (buf.length <= 1) continue;
 
         const bpm = bpmRef.current;
         const notes = decodeREMI(buf, bpm);
         if (notes.length === 0) continue;
 
-        // Determine the schedule base time
         const now = ctx.currentTime;
-        if (nextScheduleTimeRef.current === undefined || nextScheduleTimeRef.current < now) {
+        if (
+          nextScheduleTimeRef.current === undefined ||
+          nextScheduleTimeRef.current < now
+        ) {
           nextScheduleTimeRef.current = now + LOOKAHEAD_SEC;
         }
 
         synth.scheduleNotes(notes, nextScheduleTimeRef.current);
 
-        // Advance the clock by one bar's worth of seconds
         const secondsPerBeat = 60 / bpm;
-        const barDurationSec = secondsPerBeat * 4; // 4/4 time
-        nextScheduleTimeRef.current = (nextScheduleTimeRef.current ?? 0) + barDurationSec;
+        const barDurationSec = secondsPerBeat * 4;
+
+        nextScheduleTimeRef.current =
+          (nextScheduleTimeRef.current ?? 0) + barDurationSec;
       }
     }
   }, [tokens, playbackStatus]);
@@ -103,17 +139,15 @@ export function useAudioSynth() {
     processNewTokens();
   }, [processNewTokens]);
 
-  // Reset when tokens store is cleared (navigation away)
   useEffect(() => {
     if (tokens.length === 0) {
-      processedCountRef.current = 0;
+      lastProcessedTokenRef.current = null;
       tokenBufferRef.current = [];
       nextScheduleTimeRef.current = undefined;
     }
   }, [tokens.length]);
 
   return {
-    /** Call this on a user gesture (button press) to unlock AudioContext */
     unlockAudio: () => globalSynth?.resume(),
     setVolume: (v: number) => {
       if (globalSynth) globalSynth.volume = v;

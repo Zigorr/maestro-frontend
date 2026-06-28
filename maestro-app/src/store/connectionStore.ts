@@ -16,7 +16,7 @@ type ConnectionStore = {
 };
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
-  serverUrl: 'ws://192.168.1.6:8000', // Your local IP — device must be on the same WiFi as the PC
+  serverUrl: 'ws://localhost:8000', // Your local IP — device must be on the same WiFi as the PC
   status: 'disconnected',
   error: undefined,
   setServerUrl: (url) => set({ serverUrl: url }),

@@ -1,132 +1,97 @@
-import React, { useState } from 'react';
-import {
-  View, Text, TextInput, StyleSheet, ScrollView, Alert,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useMoodTheme } from '../theme/ThemeContext';
-import { ThemedButton } from '../components/ui/ThemedButton';
-import { StatusDot } from '../components/ui/StatusDot';
-import { MoodCard } from '../components/mood/MoodCard';
-import { CircumplexChart } from '../components/circumplex/CircumplexChart';
-import { useConnectionStore } from '../store/connectionStore';
-import { useStore as useInferenceStore } from '../store/inferenceStore';
-import { moodThemes } from '../theme/moodThemes';
+import React from "react";
+import { View, Text, StyleSheet, Image } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useMoodTheme } from "../theme/ThemeContext";
+import { ThemedButton } from "../components/ui/ThemedButton";
 
 export function HomeScreen() {
   const { theme } = useMoodTheme();
   const navigation = useNavigation<any>();
-  const { serverUrl, setServerUrl, status } = useConnectionStore();
-  const { currentMood, predictionHistory } = useInferenceStore();
-  const [urlInput, setUrlInput] = useState(serverUrl);
 
   return (
-    <ScrollView
-      style={[styles.root, { backgroundColor: theme.bg }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.appName, { color: theme.text }]}>MAESTRO</Text>
-        <StatusDot status={status} />
+        <Text style={[styles.appName, { color: theme.text }]}>
+          M A E S T R O
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+          Real-time Affective Music Generation
+        </Text>
       </View>
 
-      {/* Server URL */}
-      <View style={[styles.urlRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <TextInput
-          value={urlInput}
-          onChangeText={setUrlInput}
-          onBlur={() => setServerUrl(urlInput.trim())}
-          style={[styles.urlInput, { color: theme.text }]}
-          placeholder="ws://10.0.2.2:8000"
-          placeholderTextColor={theme.textMuted}
-          autoCapitalize="none"
-          autoCorrect={false}
+      {/* Center Illustration */}
+      <View style={styles.imageContainer}>
+        <Image
+          // Adjust this path if your assets folder is located elsewhere
+          source={require("../../assets/chrollo.png")}
+          style={styles.heroImage}
+          resizeMode="contain"
         />
       </View>
 
-      {/* Mood Card */}
-      <MoodCard />
-
-      {/* Circumplex */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <CircumplexChart />
-      </View>
-
-      {/* Recent moods */}
-      {predictionHistory.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>RECENT MOODS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyRow}>
-            {predictionHistory.slice(0, 10).map((p, i) => (
-              <View
-                key={i}
-                style={[styles.historyChip, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
-              >
-                <View style={[styles.historyDot, { backgroundColor: moodThemes[p.mood.name]?.accent ?? '#888' }]} />
-                <Text style={[styles.historyLabel, { color: theme.textMuted }]}>
-                  {p.mood.name}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Action Buttons */}
+      {/* Action Buttons (Docked to bottom) */}
       <View style={styles.actions}>
         <ThemedButton
-          label="Upload CSV  ·  Stream"
-          onPress={() => navigation.navigate('Calibrate', { mode: 'csv' })}
-          style={styles.actionBtn}
+          label="Stream Physiological Data"
+          onPress={() => navigation.navigate("Calibrate", { mode: "csv" })}
+          style={{ ...styles.actionBtn, backgroundColor: "#04999e" }}
         />
         <ThemedButton
-          label="Pick Mood Manually"
+          label="Manual Mood Selection"
           variant="secondary"
-          onPress={() => navigation.navigate('Calibrate', { mode: 'manual' })}
+          onPress={() => navigation.navigate("Calibrate", { mode: "manual" })}
           style={styles.actionBtn}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40, gap: 16 },
+  root: {
+    flex: 1,
+    padding: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+    alignItems: "center",
+    marginTop: 20,
+    width: "100%",
   },
-  appName: { fontSize: 22, fontWeight: '800', letterSpacing: 4 },
-  urlRow: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 2,
+  appName: {
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: 6,
+    marginBottom: 8,
   },
-  urlInput: { fontSize: 13, height: 44, fontFamily: 'monospace' },
-  card: { borderRadius: 20, borderWidth: 1, padding: 12 },
-  section: { gap: 8 },
-  sectionTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
-  historyRow: { flexDirection: 'row' },
-  historyChip: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginRight: 8,
-    gap: 2,
+  subtitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
-  historyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  imageContainer: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
   },
-  historyLabel: { fontSize: 10, fontWeight: '500' },
-  actions: { gap: 10, marginTop: 8 },
-  actionBtn: { width: '100%' },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+    maxHeight: 450,
+  },
+  actions: {
+    width: "100%",
+    gap: 16,
+  },
+  actionBtn: {
+    width: "100%",
+    paddingVertical: 18,
+    borderRadius: 16,
+  },
 });

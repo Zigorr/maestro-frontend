@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useMoodTheme } from '../../theme/ThemeContext';
 import { useMusicStore } from '../../store/musicStore';
@@ -8,15 +8,21 @@ export function TokenStream() {
   const { theme } = useMoodTheme();
   const tokens = useMusicStore((s) => s.tokens);
 
+  // Reverse once per render
+  const reversedTokens = useMemo(() => [...tokens].reverse(), [tokens]);
+
   const renderToken = ({ item, index }: { item: { token: number; moodId: number; timestamp: number }; index: number }) => {
     const moodName = ID_TO_MOOD[item.moodId];
     const mt = moodName ? moodThemes[moodName] : null;
     const color = mt?.accent ?? theme.accent;
 
+    // Visual sequence indicator
+    const seqNum = index + 1;
+
     return (
       <View style={[styles.row, { borderBottomColor: theme.border }]}>
         <Text style={[styles.index, { color: theme.textMuted }]}>
-          {String(tokens.length - index).padStart(4, '0')}
+          {String(seqNum).padStart(4, '0')}
         </Text>
         <View style={[styles.tokenBadge, { backgroundColor: color + '22', borderColor: color + '55' }]}>
           <Text style={[styles.tokenVal, { color }]}>{item.token}</Text>
@@ -32,8 +38,9 @@ export function TokenStream() {
     <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Text style={[styles.header, { color: theme.textMuted }]}>TOKEN STREAM</Text>
       <FlatList
-        data={[...tokens].reverse()}
-        keyExtractor={(_, i) => String(i)}
+        data={reversedTokens}
+        // STABLE KEY FIX: Uses the unique timestamp to prevent UI freezing
+        keyExtractor={(item, i) => `${item.timestamp}-${i}`}
         renderItem={renderToken}
         showsVerticalScrollIndicator={false}
         style={styles.list}
